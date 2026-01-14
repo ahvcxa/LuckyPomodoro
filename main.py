@@ -4,15 +4,18 @@ FastAPI + WebSockets ile gerçek zamanlı senkronize Pomodoro sayacı
 Target Timestamp mantığı ile doğru zamanlama
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from typing import Dict, Optional
 import uuid
 import asyncio
 from datetime import datetime, timedelta
 import logging
+import os
+from pathlib import Path
 
 # Logging yapılandırması
 logging.basicConfig(level=logging.INFO)
@@ -30,8 +33,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Templates klasörü
-templates = Jinja2Templates(directory="templates")
+# Templates klasörü - Render için path düzeltmesi
+BASE_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+
+# Templates klasörünü kontrol et ve oluştur
+if not TEMPLATES_DIR.exists():
+    TEMPLATES_DIR.mkdir(exist_ok=True)
+    logger.warning(f"Templates klasörü bulunamadı, oluşturuldu: {TEMPLATES_DIR}")
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# Static dosyalar için (eğer varsa)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Varsayılan Pomodoro ayarları (saniye cinsinden)
 DEFAULT_WORK_DURATION = 25 * 60      # 25 dakika
@@ -378,16 +394,36 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint - Render ve diğer platformlar için"""
+    return {
+        "status": "ok",
+        "templates_dir": str(TEMPLATES_DIR),
+        "templates_exists": TEMPLATES_DIR.exists(),
+        "static_dir": str(STATIC_DIR),
+        "static_exists": STATIC_DIR.exists()
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Ana sayfa"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    try:
+        return templates.TemplateResponse("index.html", {"request": request})
+    except Exception as e:
+        logger.error(f"Template hatası: {e}")
+        raise HTTPException(status_code=500, detail=f"Template yükleme hatası: {str(e)}")
 
 
 @app.get("/room/{room_id}", response_class=HTMLResponse)
 async def read_room(request: Request, room_id: str):
     """Oda sayfası"""
-    return templates.TemplateResponse("index.html", {"request": request, "room_id": room_id})
+    try:
+        return templates.TemplateResponse("index.html", {"request": request, "room_id": room_id})
+    except Exception as e:
+        logger.error(f"Template hatası: {e}")
+        raise HTTPException(status_code=500, detail=f"Template yükleme hatası: {str(e)}")
 
 
 @app.websocket("/ws/{room_id}")

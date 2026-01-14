@@ -398,23 +398,66 @@ Varsayılan port 8000'dir. `main.py` dosyasının sonundaki `uvicorn.run()` ça�
 
 ## 🐛 Sorun Giderme
 
+### Internal Server Error (500)
+
+Render'da Internal Server Error alıyorsanız:
+
+1. **Health Check Endpoint'ini kontrol edin**:
+   ```
+   https://your-app.onrender.com/health
+   ```
+   Bu endpoint size template ve static dosya yollarını gösterecek.
+
+2. **Render Logs'u kontrol edin**:
+   - Render dashboard'da servisinizin "Logs" sekmesine gidin
+   - Hata mesajlarını okuyun
+   - Özellikle "TemplateNotFound" veya "ModuleNotFound" hatalarına bakın
+
+3. **Yaygın Sorunlar ve Çözümleri**:
+   
+   **Sorun: Template bulunamıyor**
+   - Çözüm: GitHub repo'nuzda `templates/` klasörünün olduğundan emin olun
+   - `templates/index.html` dosyasının mevcut olduğunu kontrol edin
+   
+   **Sorun: ModuleNotFoundError**
+   - Çözüm: `requirements.txt` dosyasında tüm bağımlılıkların olduğundan emin olun
+   - Render'da "Manual Deploy" yapıyorsanız, dosyaların doğru yüklendiğini kontrol edin
+   
+   **Sorun: Port hatası**
+   - Çözüm: Start Command'da `$PORT` kullanıldığından emin olun:
+     ```
+     uvicorn main:app --host 0.0.0.0 --port $PORT
+     ```
+
+4. **Yeniden Deploy**:
+   - Render dashboard'da "Manual Deploy" → "Clear build cache & deploy" seçeneğini deneyin
+   - Bu, önbellek sorunlarını çözer
+
 ### WebSocket Bağlantı Hatası
 
 - Sunucunun çalıştığından emin olun
 - Firewall ayarlarını kontrol edin
 - Port 8000'in başka bir uygulama tarafından kullanılmadığından emin olun
+- Render'da WebSocket için Settings → Headers'a `Upgrade: websocket` ekleyin
 
 ### Timer Senkronize Değil
 
 - Sayfayı yenileyin
-- WebSocket bağlantısını kontrol edin (tarayıcı konsolunda)
+- WebSocket bağlantısını kontrol edin (tarayıcı konsolunda - F12)
 - Tüm kullanıcıların aynı oda ID'sine sahip olduğundan emin olun
+- Tarayıcı konsolunda hata mesajları var mı kontrol edin
 
 ### Ngrok Bağlantı Sorunları
 
 - Ngrok authtoken'ın doğru ayarlandığından emin olun
 - Ücretsiz plan limitlerini kontrol edin
 - Alternatif olarak Cloudflare Tunnel kullanmayı deneyin
+
+### Render'da Uyku Modu
+
+- Ücretsiz plan 15 dakika kullanılmazsa uyku moduna geçer
+- İlk istek 30-60 saniye sürebilir (uyanma süresi)
+- Bu normal bir durumdur, sabırla bekleyin
 
 ## 📄 Lisans
 
