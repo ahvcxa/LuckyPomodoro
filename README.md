@@ -132,13 +132,31 @@ Render, FastAPI uygulamaları için mükemmel ücretsiz hosting sağlar.
 
 4. **Deploy edin**: Render otomatik olarak deploy edecek ve size bir URL verecek (örn: `https://multiplayer-pomodoro.onrender.com`)
 
+5. **WebSocket için ekstra ayar (ÖNEMLİ)**:
+   - Render dashboard'da servisinizin "Settings" sekmesine gidin
+   - "Headers" bölümüne şunu ekleyin:
+     ```
+     Key: Upgrade
+     Value: websocket
+     ```
+   - VEYA daha kolay yol: Environment Variables'a şunu ekleyin:
+     ```
+     Key: WEBSOCKET_ENABLED
+     Value: true
+     ```
+
 **Avantajlar:**
 - ✅ Tamamen ücretsiz (Free tier)
 - ✅ Otomatik HTTPS
 - ✅ Kolay kurulum
 - ✅ GitHub entegrasyonu (otomatik deploy)
+- ✅ WebSocket desteği (ekstra ayar ile)
 
-**Not:** Ücretsiz plan 15 dakika kullanılmazsa uyku moduna geçer, ilk istekte tekrar başlar (30 saniye gecikme olabilir).
+**Önemli Notlar:**
+- ⚠️ **Ücretsiz plan**: 15 dakika kullanılmazsa uyku moduna geçer, ilk istekte tekrar başlar (30 saniye gecikme olabilir)
+- ✅ **Link direkt çalışır**: Deploy tamamlandıktan sonra verilen linki tarayıcıda açtığınızda uygulama çalışır
+- ✅ **HTTPS otomatik**: Render otomatik olarak HTTPS sağlar (güvenli bağlantı)
+- ✅ **WebSocket çalışır**: Yukarıdaki ayarları yaptıktan sonra WebSocket bağlantıları sorunsuz çalışır
 
 ---
 

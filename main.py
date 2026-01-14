@@ -7,6 +7,7 @@ Target Timestamp mantığı ile doğru zamanlama
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Optional
 import uuid
 import asyncio
@@ -19,6 +20,15 @@ logger = logging.getLogger(__name__)
 
 # FastAPI uygulaması
 app = FastAPI(title="Multiplayer Pomodoro 🍀")
+
+# CORS middleware (WebSocket ve cross-origin istekler için)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Production'da spesifik domain'ler ekleyin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Templates klasörü
 templates = Jinja2Templates(directory="templates")
