@@ -1,0 +1,12 @@
+# Render.com için yapılandırma dosyası (opsiyonel)
+# Bu dosya Render'da otomatik deployment'ı kolaylaştırır
+
+services:
+  - type: web
+    name: multiplayer-pomodoro
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
