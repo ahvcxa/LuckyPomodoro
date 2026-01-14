@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍀 Multiplayer Pomodoro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .timer-display {
+            font-variant-numeric: tabular-nums;
+        }
+        @keyframes pulse-green {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        .pulse-animation {
+            animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-emerald-50 min-h-screen">
+    <!-- Toast Bildirimleri -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Ana Container -->
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header - Logo ve Başlık -->
+        <div class="text-center mb-8">
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <span class="text-6xl">🍀</span>
+                <h1 class="text-5xl font-bold text-emerald-800">Multiplayer Pomodoro</h1>
+            </div>
+            <p class="text-emerald-600 text-lg">Arkadaşlarınızla birlikte odaklanın!</p>
+        </div>
+
+        <!-- Oda Oluştur/Katıl Formu (Ana Sayfa) -->
+        <div id="homePage" class="max-w-md mx-auto">
+            <div class="bg-white rounded-2xl shadow-lg p-8 border-2 border-emerald-200">
+                <h2 class="text-2xl font-semibold mb-6 text-emerald-800 text-center">Odaya Gir</h2>
+                
+                <form id="roomForm" class="space-y-4">
+                    <div>
+                        <label for="userName" class="block text-sm font-medium text-emerald-700 mb-2">
+                            Adınız
+                        </label>
+                        <input 
+                            type="text" 
+                            id="userName" 
+                            required
+                            placeholder="Adınızı girin"
+                            class="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-emerald-900 placeholder-emerald-400"
+                        >
+                    </div>
+                    <div>
+                        <label for="roomId" class="block text-sm font-medium text-emerald-700 mb-2">
+                            Oda ID (Boş bırakırsanız yeni oda oluşturulur)
+                        </label>
+                        <input 
+                            type="text" 
+                            id="roomId" 
+                            placeholder="Oda ID'sini girin veya boş bırakın"
+                            class="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-emerald-900 placeholder-emerald-400"
+                        >
+                    </div>
+                    <button 
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    >
+                        Odaya Gir
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Oda Sayfası (Gizli, JavaScript ile gösterilecek) -->
+        <div id="roomPage" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Sol ve Orta: Ana İçerik -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Üst Bar -->
+                    <div class="bg-white rounded-xl p-4 border-2 border-emerald-200 flex items-center justify-between shadow-md">
+                        <div>
+                            <h2 class="text-2xl font-bold text-emerald-800 flex items-center gap-2">
+                                <span>🍀</span>
+                                <span>Pomodoro Odası</span>
+                            </h2>
+                            <p class="text-emerald-600 text-sm mt-1">
+                                Oda ID: <span id="roomIdDisplay" class="font-mono text-emerald-800 font-semibold"></span>
+                            </p>
+                        </div>
+                        <button 
+                            id="copyLinkBtn"
+                            class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-2 rounded-xl transition-colors border-2 border-emerald-300 font-medium"
+                        >
+                            📋 Linki Kopyala
+                        </button>
+                    </div>
+
+                    <!-- Timer Kartı -->
+                    <div class="bg-white rounded-2xl shadow-xl p-12 border-2 border-emerald-200 text-center">
+                        <!-- Timer Display -->
+                        <div class="mb-8">
+                            <div 
+                                id="timerDisplay" 
+                                class="timer-display text-9xl font-bold mb-4 text-emerald-600"
+                            >
+                                25:00
+                            </div>
+                            <div id="timerStatus" class="text-emerald-600 text-xl font-medium">
+                                Hazır
+                            </div>
+                            <div id="timerMode" class="text-emerald-500 text-sm mt-2">
+                                Çalışma Modu
+                            </div>
+                        </div>
+
+                        <!-- Kontrol Butonları -->
+                        <div class="flex justify-center gap-4 flex-wrap mb-6">
+                            <button 
+                                id="startBtn"
+                                class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+                            >
+                                ▶️ Başlat
+                            </button>
+                            <button 
+                                id="stopBtn"
+                                class="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+                            >
+                                ⏸️ Durdur
+                            </button>
+                            <button 
+                                id="resetBtn"
+                                class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold py-3 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 border-2 border-emerald-300"
+                            >
+                                🔄 Sıfırla
+                            </button>
+                        </div>
+
+                        <!-- Mod Seçimi -->
+                        <div class="flex justify-center gap-3 mb-6">
+                            <button 
+                                id="workModeBtn"
+                                class="mode-btn bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium transition-all"
+                                data-mode="work"
+                            >
+                                💼 Çalışma
+                            </button>
+                            <button 
+                                id="shortBreakBtn"
+                                class="mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all"
+                                data-mode="short_break"
+                            >
+                                ☕ Kısa Mola
+                            </button>
+                            <button 
+                                id="longBreakBtn"
+                                class="mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all"
+                                data-mode="long_break"
+                            >
+                                🏖️ Uzun Mola
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ayarlar Kartı -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-emerald-200">
+                        <h3 class="text-xl font-semibold mb-4 text-emerald-800">⚙️ Süre Ayarları</h3>
+                        <form id="settingsForm" class="space-y-4">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label for="workDuration" class="block text-sm font-medium text-emerald-700 mb-2">
+                                        Çalışma (dakika)
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        id="workDuration" 
+                                        min="1" 
+                                        max="60"
+                                        value="25"
+                                        class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-900"
+                                    >
+                                </div>
+                                <div>
+                                    <label for="shortBreak" class="block text-sm font-medium text-emerald-700 mb-2">
+                                        Kısa Mola (dakika)
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        id="shortBreak" 
+                                        min="1" 
+                                        max="30"
+                                        value="5"
+                                        class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-900"
+                                    >
+                                </div>
+                                <div>
+                                    <label for="longBreak" class="block text-sm font-medium text-emerald-700 mb-2">
+                                        Uzun Mola (dakika)
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        id="longBreak" 
+                                        min="1" 
+                                        max="60"
+                                        value="15"
+                                        class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-emerald-900"
+                                    >
+                                </div>
+                            </div>
+                            <button 
+                                type="submit"
+                                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-6 rounded-xl transition-colors"
+                            >
+                                Ayarları Uygula
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Sağ: Kullanıcı Listesi -->
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl p-6 border-2 border-emerald-200 shadow-md sticky top-4">
+                        <h2 class="text-xl font-semibold mb-4 text-emerald-800 flex items-center">
+                            <span class="mr-2">👥</span>
+                            Aktif Kullanıcılar
+                            <span id="userCount" class="ml-2 text-sm text-emerald-600">(0)</span>
+                        </h2>
+                        <div id="userList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <p class="text-emerald-500 text-sm">Kullanıcılar yükleniyor...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global değişkenler
+        let ws = null;
+        let currentRoomId = null;
+        let currentUserName = null;
+        let currentTimer = 25 * 60; // saniye cinsinden
+        let isRunning = false;
+        let targetTimestamp = null;
+        let currentMode = "work";
+        let timerInterval = null;
+        let settings = {
+            work_duration: 25 * 60,
+            short_break: 5 * 60,
+            long_break: 15 * 60
+        };
+
+        // URL parametrelerinden oda ID'sini al
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRoomId = urlParams.get('room_id');
+
+        // Eğer URL'de oda ID varsa, direkt odaya bağlan
+        if (urlRoomId) {
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('roomPage').classList.remove('hidden');
+            document.getElementById('roomIdDisplay').textContent = urlRoomId;
+            currentRoomId = urlRoomId;
+            // Kullanıcı adı iste
+            const userName = prompt("Adınızı girin:");
+            if (userName) {
+                currentUserName = userName;
+                connectWebSocket(urlRoomId, userName);
+            } else {
+                window.location.href = '/';
+            }
+        }
+
+        // Oda formu
+        document.getElementById('roomForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const userName = document.getElementById('userName').value.trim();
+            let roomId = document.getElementById('roomId').value.trim();
+            
+            if (!userName) {
+                alert('Lütfen adınızı girin!');
+                return;
+            }
+            
+            // Oda ID yoksa yeni oluştur
+            if (!roomId) {
+                roomId = Math.random().toString(36).substring(2, 15);
+            }
+            
+            currentUserName = userName;
+            currentRoomId = roomId;
+            
+            // Ana sayfayı gizle, oda sayfasını göster
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('roomPage').classList.remove('hidden');
+            document.getElementById('roomIdDisplay').textContent = roomId;
+            
+            // WebSocket bağlantısını kur
+            connectWebSocket(roomId, userName);
+        });
+
+        // WebSocket bağlantısı
+        function connectWebSocket(roomId, userName) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${roomId}`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket bağlantısı kuruldu');
+                // Kullanıcı adını gönder
+                ws.send(JSON.stringify({
+                    type: 'connect',
+                    user_name: userName
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket hatası:', error);
+                showToast('Bağlantı hatası oluştu', 'error');
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket bağlantısı kapandı');
+                showToast('Bağlantı kesildi. Yeniden bağlanılıyor...', 'warning');
+                // 3 saniye sonra yeniden bağlanmayı dene
+                setTimeout(() => connectWebSocket(roomId, userName), 3000);
+            };
+        }
+
+        // WebSocket mesajlarını işle
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'timer_state':
+                case 'timer_started':
+                case 'timer_stopped':
+                case 'timer_reset':
+                case 'settings_updated':
+                    updateTimer(data.remaining_seconds, data.is_running, data.target_timestamp, data.mode);
+                    if (data.settings) {
+                        settings = data.settings;
+                        updateSettingsUI(data.settings);
+                    }
+                    break;
+                
+                case 'user_joined':
+                    showToast(data.message, 'success');
+                    break;
+                
+                case 'user_left':
+                    showToast(data.message, 'info');
+                    break;
+                
+                case 'user_list_update':
+                    updateUserList(data.users);
+                    break;
+            }
+        }
+
+        // Timer'ı güncelle (Target Timestamp mantığı)
+        function updateTimer(remainingSeconds, running, targetTs, mode) {
+            currentTimer = remainingSeconds;
+            isRunning = running;
+            targetTimestamp = targetTs;
+            currentMode = mode || currentMode;
+            
+            // Mod butonlarını güncelle
+            updateModeButtons(mode);
+            
+            // Timer display'i güncelle
+            updateTimerDisplay(remainingSeconds);
+            
+            // Durum metnini güncelle
+            const statusEl = document.getElementById('timerStatus');
+            if (running) {
+                statusEl.textContent = 'Çalışıyor...';
+                statusEl.className = 'text-emerald-600 text-xl font-medium';
+                document.getElementById('timerDisplay').classList.add('pulse-animation');
+                
+                // Yerel timer'ı başlat (target timestamp'e göre)
+                if (!timerInterval) {
+                    startLocalTimer();
+                }
+            } else {
+                statusEl.textContent = remainingSeconds === settings.work_duration && mode === 'work' ? 'Hazır' : 'Durduruldu';
+                statusEl.className = 'text-emerald-600 text-xl font-medium';
+                document.getElementById('timerDisplay').classList.remove('pulse-animation');
+                
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }
+            
+            // Mod metnini güncelle
+            const modeTexts = {
+                work: '💼 Çalışma Modu',
+                short_break: '☕ Kısa Mola',
+                long_break: '🏖️ Uzun Mola'
+            };
+            document.getElementById('timerMode').textContent = modeTexts[mode] || modeTexts.work;
+        }
+
+        // Timer display'i güncelle
+        function updateTimerDisplay(remainingSeconds) {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // Yerel timer (Target timestamp'e göre)
+        function startLocalTimer() {
+            if (timerInterval) return;
+            
+            timerInterval = setInterval(() => {
+                if (targetTimestamp && isRunning) {
+                    try {
+                        const targetTime = new Date(targetTimestamp);
+                        const now = new Date();
+                        const remaining = Math.max(0, Math.floor((targetTime - now) / 1000));
+                        
+                        if (remaining > 0) {
+                            updateTimerDisplay(remaining);
+                            currentTimer = remaining;
+                        } else {
+                            // Süre bitti
+                            clearInterval(timerInterval);
+                            timerInterval = null;
+                            showToast('🍀 Pomodoro tamamlandı!', 'success');
+                            
+                            // Tarayıcı bildirimi
+                            if (Notification.permission === 'granted') {
+                                new Notification('Pomodoro Tamamlandı!', {
+                                    body: 'Çalışma süreniz doldu.',
+                                    icon: '🍀'
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Timer hesaplama hatası:', e);
+                    }
+                } else {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }, 100); // 100ms'de bir güncelle (daha akıcı)
+        }
+
+        // Mod butonlarını güncelle
+        function updateModeButtons(activeMode) {
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                const mode = btn.getAttribute('data-mode');
+                if (mode === activeMode) {
+                    btn.className = 'mode-btn bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium transition-all';
+                } else {
+                    btn.className = 'mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all';
+                }
+            });
+        }
+
+        // Ayarlar UI'ını güncelle
+        function updateSettingsUI(newSettings) {
+            document.getElementById('workDuration').value = Math.floor(newSettings.work_duration / 60);
+            document.getElementById('shortBreak').value = Math.floor(newSettings.short_break / 60);
+            document.getElementById('longBreak').value = Math.floor(newSettings.long_break / 60);
+        }
+
+        // Kullanıcı listesini güncelle
+        function updateUserList(users) {
+            const userListEl = document.getElementById('userList');
+            const userCountEl = document.getElementById('userCount');
+            
+            userCountEl.textContent = `(${users.length})`;
+            
+            if (users.length === 0) {
+                userListEl.innerHTML = '<p class="text-emerald-500 text-sm">Henüz kimse yok</p>';
+                return;
+            }
+            
+            userListEl.innerHTML = users.map(user => `
+                <div class="bg-emerald-50 rounded-lg p-3 flex items-center border border-emerald-200">
+                    <div class="w-2 h-2 bg-emerald-500 rounded-full mr-3 animate-pulse"></div>
+                    <span class="text-emerald-800">${escapeHtml(user.name)}</span>
+                </div>
+            `).join('');
+        }
+
+        // Toast bildirimi
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-emerald-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                info: 'bg-blue-500'
+            };
+            
+            toast.className = `${colors[type] || colors.info} text-white px-6 py-3 rounded-xl shadow-lg toast`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // HTML escape
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Buton event listener'ları
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'start_timer' }));
+            }
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'stop_timer' }));
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'reset_timer', mode: currentMode }));
+            }
+        });
+
+        // Mod butonları
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.getAttribute('data-mode');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'reset_timer', mode: mode }));
+                }
+            });
+        });
+
+        // Ayarlar formu
+        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const workDuration = parseInt(document.getElementById('workDuration').value) * 60;
+            const shortBreak = parseInt(document.getElementById('shortBreak').value) * 60;
+            const longBreak = parseInt(document.getElementById('longBreak').value) * 60;
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'update_settings',
+                    work_duration: workDuration,
+                    short_break: shortBreak,
+                    long_break: longBreak
+                }));
+                showToast('Ayarlar güncellendi!', 'success');
+            }
+        });
+
+        // Davet linkini kopyala
+        document.getElementById('copyLinkBtn').addEventListener('click', () => {
+            const inviteLink = `${window.location.origin}/room/${currentRoomId}?room_id=${currentRoomId}`;
+            navigator.clipboard.writeText(inviteLink).then(() => {
+                showToast('Davet linki kopyalandı!', 'success');
+            }).catch(() => {
+                showToast('Kopyalama başarısız', 'error');
+            });
+        });
+
+        // Bildirim izni iste
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Sayfa kapatılırken WebSocket'i kapat
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
