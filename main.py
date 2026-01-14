@@ -9,6 +9,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+from datetime import datetime, timedelta, timezone  # <-- timezone buraya eklendi
 from typing import Dict, Optional
 import uuid
 import asyncio
@@ -231,7 +233,7 @@ class ConnectionManager:
         if timer_state["is_running"] and target_ts:
             try:
                 target_time = datetime.fromisoformat(target_ts)
-                now = datetime.now()
+                now = datetime.now(timezone.utc)
                 remaining = max(0, int((target_time - now).total_seconds()))
             except Exception as e:
                 logger.error(f"Timestamp hesaplama hatası: {e}")
@@ -248,25 +250,23 @@ class ConnectionManager:
         
         await self.send_personal_message(message, websocket)
     
+    # Mevcut kodun yerine bunu yapıştırın:
     async def start_timer(self, room_id: str):
-        """Timer'ı başlatır - Target timestamp hesaplar"""
         if room_id not in self.room_states:
             return
         
         timer_state = self.room_states[room_id]["timer"]
         
-        # Eğer timer zaten çalışıyorsa, hiçbir şey yapma
         if timer_state["is_running"]:
             return
         
-        # Mevcut kalan süreyi al
         remaining = timer_state["remaining_seconds"]
         
-        # Eğer target_timestamp varsa ve geçmişteyse, kalan süreyi güncelle
+        # Eğer target_timestamp varsa ve geçmişteyse kontrolü
         if timer_state["target_timestamp"]:
             try:
                 target_time = datetime.fromisoformat(timer_state["target_timestamp"])
-                now = datetime.now()
+                now = datetime.now(timezone.utc)  # <-- BURASI DEĞİŞTİ
                 if target_time > now:
                     remaining = int((target_time - now).total_seconds())
                 else:
@@ -274,10 +274,12 @@ class ConnectionManager:
             except:
                 pass
         
-        # Target timestamp hesapla (şu anki zaman + kalan süre)
-        now = datetime.now()
+        # Target timestamp hesapla
+        now = datetime.now(timezone.utc)  # <-- BURASI DEĞİŞTİ
         target_time = now + timedelta(seconds=remaining)
         target_timestamp = target_time.isoformat()
+        
+        
         
         # Timer durumunu güncelle
         timer_state["is_running"] = True
@@ -295,7 +297,6 @@ class ConnectionManager:
         await self.broadcast(message, room_id)
     
     async def stop_timer(self, room_id: str):
-        """Timer'ı durdurur - Kalan süreyi hesaplayıp kaydeder"""
         if room_id not in self.room_states:
             return
         
@@ -304,12 +305,11 @@ class ConnectionManager:
         if not timer_state["is_running"]:
             return
         
-        # Kalan süreyi hesapla (target_timestamp'tan)
         remaining = timer_state["remaining_seconds"]
         if timer_state["target_timestamp"]:
             try:
                 target_time = datetime.fromisoformat(timer_state["target_timestamp"])
-                now = datetime.now()
+                now = datetime.now(timezone.utc)  # <-- BURASI DEĞİŞTİ
                 remaining = max(0, int((target_time - now).total_seconds()))
             except:
                 pass
