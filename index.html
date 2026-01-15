@@ -28,7 +28,10 @@
         }
     </style>
 </head>
-<body class="bg-emerald-50 min-h-screen pb-24"> <audio id="alarmSound" preload="auto">
+<body class="bg-emerald-50 min-h-screen pb-24">
+    
+    <audio id="alarmSound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
         <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
     </audio>
 
@@ -95,4 +98,364 @@
                         </div>
 
                         <div class="flex justify-center gap-3 mb-6">
-                            <button id="workModeBtn" class="mode-btn bg-emerald
+                            <button id="workModeBtn" class="mode-btn bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium transition-all" data-mode="work">💼 Çalışma</button>
+                            <button id="shortBreakBtn" class="mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all" data-mode="short_break">☕ Kısa Mola</button>
+                            <button id="longBreakBtn" class="mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all" data-mode="long_break">🏖️ Uzun Mola</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-emerald-200">
+                        <h3 class="text-xl font-semibold mb-4 text-emerald-800">⚙️ Süre Ayarları (Dakika)</h3>
+                        <form id="settingsForm" class="space-y-4">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-emerald-700 mb-2">Çalışma</label>
+                                    <input type="number" id="workDuration" min="1" max="60" value="25" class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg text-emerald-900">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-emerald-700 mb-2">Kısa Mola</label>
+                                    <input type="number" id="shortBreak" min="1" max="30" value="5" class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg text-emerald-900">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-emerald-700 mb-2">Uzun Mola</label>
+                                    <input type="number" id="longBreak" min="1" max="60" value="15" class="w-full px-3 py-2 bg-emerald-50 border-2 border-emerald-200 rounded-lg text-emerald-900">
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-6 rounded-xl transition-colors">Ayarları Uygula</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-xl p-6 border-2 border-emerald-200 shadow-md sticky top-4">
+                        <h2 class="text-xl font-semibold mb-4 text-emerald-800 flex items-center justify-between">
+                            <span class="flex items-center gap-2">🏆 Liderlik Tablosu</span>
+                            <span id="userCount" class="text-sm bg-emerald-100 text-emerald-800 px-2 py-1 rounded-lg">0 Kişi</span>
+                        </h2>
+                        
+                        <div id="userList" class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                            <p class="text-emerald-500 text-sm">Yükleniyor...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-6 left-6 z-40 bg-white p-3 rounded-2xl shadow-xl border-2 border-emerald-200 flex items-center gap-3 transition-transform hover:scale-105">
+        <audio id="bgMusic" loop>
+            <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mp3">
+        </audio>
+        <button onclick="toggleMusic()" id="musicBtn" class="w-10 h-10 flex items-center justify-center bg-emerald-100 text-emerald-600 rounded-full hover:bg-emerald-200 transition-colors">
+            <span id="playIcon" class="text-xl">🎵</span>
+            <span id="pauseIcon" class="hidden text-xl">⏸️</span>
+        </button>
+        <div class="flex flex-col">
+            <span class="text-xs font-bold text-emerald-800">Focus Music</span>
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.5" class="w-24 h-1 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" oninput="setVolume(this.value)">
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRoomId = null;
+        let currentUserName = null;
+        let currentTimer = 25 * 60;
+        let isRunning = false;
+        let targetTimestamp = null;
+        let currentMode = "work";
+        let timerInterval = null;
+        let settings = {
+            work_duration: 25 * 60,
+            short_break: 5 * 60,
+            long_break: 15 * 60
+        };
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRoomId = urlParams.get('room_id');
+
+        const bgMusic = document.getElementById('bgMusic');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const musicBtn = document.getElementById('musicBtn');
+        bgMusic.volume = 0.5;
+
+        function toggleMusic() {
+            if (bgMusic.paused) {
+                bgMusic.play();
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                musicBtn.classList.add('bg-emerald-500', 'text-white');
+                musicBtn.classList.remove('bg-emerald-100', 'text-emerald-600');
+            } else {
+                bgMusic.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                musicBtn.classList.remove('bg-emerald-500', 'text-white');
+                musicBtn.classList.add('bg-emerald-100', 'text-emerald-600');
+            }
+        }
+
+        function setVolume(val) { bgMusic.volume = val; }
+
+        if (urlRoomId) {
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('roomPage').classList.remove('hidden');
+            document.getElementById('roomIdDisplay').textContent = urlRoomId;
+            currentRoomId = urlRoomId;
+            const userName = prompt("Adınızı girin:");
+            if (userName) {
+                currentUserName = userName;
+                connectWebSocket(urlRoomId, userName);
+            } else {
+                window.location.href = '/';
+            }
+        }
+
+        document.getElementById('roomForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const userName = document.getElementById('userName').value.trim();
+            let roomId = document.getElementById('roomId').value.trim();
+            
+            if (!userName) { alert('Lütfen adınızı girin!'); return; }
+            if (!roomId) roomId = Math.random().toString(36).substring(2, 15);
+            
+            currentUserName = userName;
+            currentRoomId = roomId;
+            
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('roomPage').classList.remove('hidden');
+            document.getElementById('roomIdDisplay').textContent = roomId;
+            
+            connectWebSocket(roomId, userName);
+        });
+
+        function connectWebSocket(roomId, userName) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${roomId}`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'connect', user_name: userName }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => showToast('Bağlantı hatası', 'error');
+            ws.onclose = () => {
+                showToast('Tekrar bağlanılıyor...', 'warning');
+                setTimeout(() => connectWebSocket(roomId, userName), 3000);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'timer_state':
+                case 'timer_started':
+                case 'timer_stopped':
+                case 'timer_reset':
+                case 'settings_updated':
+                case 'timer_finished':
+                    updateTimer(data.remaining_seconds, data.is_running, data.target_timestamp, data.mode);
+                    if (data.settings) {
+                        settings = data.settings;
+                        updateSettingsUI(data.settings);
+                    }
+                    if (data.type === 'timer_finished') {
+                        showToast('Süre doldu! Puanlar güncellendi. 🏆', 'success');
+                        playAlarm(); // <-- ZİL SESİ BURADA ÇALIYOR
+                    }
+                    break;
+                case 'user_joined': showToast(data.message, 'success'); break;
+                case 'user_left': showToast(data.message, 'info'); break;
+                case 'user_list_update': updateUserList(data.users); break;
+            }
+        }
+
+        // 🔔 Zil Sesi Fonksiyonu
+        function playAlarm() {
+            try {
+                const audio = document.getElementById('alarmSound');
+                audio.currentTime = 0;
+                // Kullanıcı etkileşimi olmadan ses çalmak bazen tarayıcı tarafından engellenebilir
+                audio.play().catch(e => console.log("Otomatik oynatma engellendi, kullanıcı etkileşimi gerek.", e));
+            } catch (e) { console.log("Audio element yok"); }
+        }
+
+        function updateTimer(remainingSeconds, running, targetTs, mode) {
+            currentTimer = remainingSeconds;
+            isRunning = running;
+            targetTimestamp = targetTs;
+            currentMode = mode || currentMode;
+            
+            updateModeButtons(mode);
+            updateTimerDisplay(remainingSeconds);
+            
+            const statusEl = document.getElementById('timerStatus');
+            
+            if (running) {
+                statusEl.textContent = 'Çalışıyor...';
+                document.getElementById('timerDisplay').classList.add('pulse-animation');
+                if (!timerInterval) startLocalTimer();
+            } else {
+                statusEl.textContent = 'Durduruldu / Hazır';
+                document.getElementById('timerDisplay').classList.remove('pulse-animation');
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            }
+            
+            const modeTexts = { work: '💼 Çalışma Modu', short_break: '☕ Kısa Mola', long_break: '🏖️ Uzun Mola' };
+            document.getElementById('timerMode').textContent = modeTexts[mode] || modeTexts.work;
+        }
+
+        function updateTimerDisplay(remainingSeconds) {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // 🔧 LOCAL TIMER DÜZELTMESİ BURADA
+        function startLocalTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                if (targetTimestamp && isRunning) {
+                    try {
+                        const targetTime = new Date(targetTimestamp);
+                        const now = new Date();
+                        const remaining = Math.max(0, Math.floor((targetTime - now) / 1000));
+                        
+                        if (remaining > 0) {
+                            updateTimerDisplay(remaining);
+                            currentTimer = remaining;
+                        } else {
+                            // SÜRE BİTTİĞİNDE YAPILACAKLAR
+                            clearInterval(timerInterval);
+                            timerInterval = null;
+                            updateTimerDisplay(0); // <--- İŞTE BU SATIR EKLENDİ (00:00 yazar)
+                            
+                            // Sunucuya bildir
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: 'timer_completed' }));
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                } else {
+                    clearInterval(timerInterval); timerInterval = null;
+                }
+            }, 100);
+        }
+
+        function updateModeButtons(activeMode) {
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                const mode = btn.getAttribute('data-mode');
+                if (mode === activeMode) {
+                    btn.className = 'mode-btn bg-emerald-500 text-white px-4 py-2 rounded-xl font-medium transition-all';
+                } else {
+                    btn.className = 'mode-btn bg-emerald-300 text-emerald-800 px-4 py-2 rounded-xl font-medium transition-all';
+                }
+            });
+        }
+
+        function updateSettingsUI(newSettings) {
+            document.getElementById('workDuration').value = Math.floor(newSettings.work_duration / 60);
+            document.getElementById('shortBreak').value = Math.floor(newSettings.short_break / 60);
+            document.getElementById('longBreak').value = Math.floor(newSettings.long_break / 60);
+        }
+
+        function updateUserList(users) {
+            const userListEl = document.getElementById('userList');
+            const userCountEl = document.getElementById('userCount');
+            userCountEl.textContent = `${users.length} Kişi`;
+            
+            if (users.length === 0) {
+                userListEl.innerHTML = '<p class="text-emerald-500 text-sm">Kimse yok</p>';
+                return;
+            }
+            
+            userListEl.innerHTML = users.map((user, index) => {
+                const totalMinutes = Math.floor(user.total_seconds / 60);
+                
+                let rankBadge = `<span class="font-bold text-emerald-600 w-6 text-center">${index + 1}.</span>`;
+                let bgClass = 'bg-white border-emerald-100';
+                
+                if (index === 0 && user.total_seconds > 0) {
+                    rankBadge = '🥇';
+                    bgClass = 'bg-yellow-50 border-yellow-300 shadow-sm';
+                } else if (index === 1 && user.total_seconds > 0) {
+                    rankBadge = '🥈';
+                    bgClass = 'bg-slate-50 border-slate-300';
+                } else if (index === 2 && user.total_seconds > 0) {
+                    rankBadge = '🥉';
+                    bgClass = 'bg-orange-50 border-orange-200';
+                }
+
+                return `
+                <div class="${bgClass} rounded-lg p-3 flex items-center justify-between border mb-2 transition-transform hover:scale-[1.02]">
+                    <div class="flex items-center gap-3">
+                        <div class="text-xl w-8 text-center">${rankBadge}</div>
+                        <div>
+                            <div class="font-bold text-emerald-900 leading-tight">${escapeHtml(user.name)}</div>
+                            <div class="text-[10px] uppercase tracking-wider text-emerald-500 font-semibold">Toplam Odak</div>
+                        </div>
+                    </div>
+                    <div class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-bold text-sm">
+                        ${totalMinutes} dk
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const colors = { success: 'bg-emerald-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+            toast.className = `${colors[type] || colors.info} text-white px-6 py-3 rounded-xl shadow-lg toast mb-2`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'start_timer' }));
+        });
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop_timer' }));
+        });
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reset_timer', mode: currentMode }));
+        });
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.getAttribute('data-mode');
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'reset_timer', mode: mode }));
+            });
+        });
+        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const w = parseInt(document.getElementById('workDuration').value) * 60;
+            const s = parseInt(document.getElementById('shortBreak').value) * 60;
+            const l = parseInt(document.getElementById('longBreak').value) * 60;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'update_settings', work_duration: w, short_break: s, long_break: l }));
+                showToast('Ayarlar güncellendi!', 'success');
+            }
+        });
+        document.getElementById('copyLinkBtn').addEventListener('click', () => {
+            const inviteLink = `${window.location.origin}/room/${currentRoomId}?room_id=${currentRoomId}`;
+            navigator.clipboard.writeText(inviteLink).then(() => showToast('Link kopyalandı!', 'success'));
+        });
+
+        window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
+    </script>
+</body>
+</html>
